@@ -73,7 +73,7 @@ public class InitializeJob extends WorkJob
 	public static class Reduce
 		extends Reducer<NullWritable, PointWritable, IntWritable, PointWritable>
 	{
-		private int                                          _clusterCount;
+		private int                                         _clusterCount;
 		private MultipleOutputs<IntWritable, PointWritable> _outputs;
 
 		@Override
@@ -91,18 +91,27 @@ public class InitializeJob extends WorkJob
 			throws IOException, InterruptedException
 		{
 			ArrayList<PointWritable> points = new ArrayList<>();
+			int i = 0;
+			Random rand = new Random();
 			for(PointWritable value : values)
 			{
-				points.add(value.clonePoint());
 				_outputs.write(Output_Name_ClusterPoint, new IntWritable(-1), value);
+
+				// Random pick points...
+				if(i < _clusterCount)
+					points.add(value.clonePoint());
+				else
+				{
+					int index = rand.nextInt(i);
+					if(index < _clusterCount)
+						points.set(index, value.clonePoint());
+				}
+				i++;
 			}
 
-			Random rand = new Random();
-			for(int i = 0; i < _clusterCount; i++)
+			for(i = 0; i < points.size(); i++)
 			{
-				int index = rand.nextInt(points.size());
-				PointWritable point = points.get(index);
-				points.remove(index);
+				PointWritable point = points.get(i);
 				_outputs.write(Output_Name_ClusterCenter, new IntWritable(i), point);
 			}
 		}

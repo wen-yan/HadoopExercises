@@ -28,7 +28,7 @@ public class KMeansClusteringJob extends Configured implements Tool
 		String outputPathBase = args[1];
 
 		// Create job for initialize...
-		String outputPath = outputPathBase + "-0";
+		String outputPath = outputPathBase + "/0";
 
 		LOG.info("Starting initialize job...");
 		LOG.info("Input paths : " + inputPaths);
@@ -37,13 +37,13 @@ public class KMeansClusteringJob extends Configured implements Tool
 		InitializeJob job = new InitializeJob(getConf(), "initialize", inputPaths, outputPath);
 
 		if(!job.getJob().waitForCompletion(true))
-			return 1;
+			return 2;
 
 		for(int i = 0; i < 4; i++)
 		{
-			String pointFiles = outputPathBase + "-" + Integer
+			String pointFiles = outputPathBase + "/" + Integer
 				.toString(i) + "/" + WorkJob.Output_Name_ClusterPoint + "-*";
-			outputPath = outputPathBase + "-" + Integer.toString(i + 1);
+			outputPath = outputPathBase + "/" + Integer.toString(i + 1);
 			CalcJob calcJob = new CalcJob(getConf(), "calculate", pointFiles, outputPath);
 
 			LOG.info("Starting calculate job " + Integer.toString(i) + "...");
@@ -51,11 +51,18 @@ public class KMeansClusteringJob extends Configured implements Tool
 			LOG.info("Output path : " + outputPath);
 
 			// Add cluster center file as cached file...
-			String clusterCenterFiles = outputPathBase + "-" + Integer
+			String clusterCenterFiles = outputPathBase + "/" + Integer
 				.toString(i) + "/" + WorkJob.Output_Name_ClusterCenter + "-*";
 
-			FileSystem fs = FileSystem.get(getConf());
-			FileStatus[] status = fs.globStatus(new Path(clusterCenterFiles));
+			// Cannot use 'FileSystem fs = FileSystem.get(getConf());' directly,
+			// because it uses default file system schema, which is HDFS. In fact,
+			// it just calls FileSystem.get(getDefaultUri(conf), conf). The default
+			// getDefaultUri(conf) is defined by fs.default.name or fs.defaultFS.
+			// To adapt to other file system, such as Azure Storage, using URI,
+			// which contains schema information to create FileSystem instance.
+			Path clusterCenterFilesPath = new Path(clusterCenterFiles);
+			FileSystem fs = FileSystem.get(clusterCenterFilesPath.toUri(), getConf());
+			FileStatus[] status = fs.globStatus(clusterCenterFilesPath);
 
 			for(int j = 0; j < status.length; j++)
 			{
@@ -64,7 +71,7 @@ public class KMeansClusteringJob extends Configured implements Tool
 			}
 
 			if(!calcJob.getJob().waitForCompletion(true))
-				return 1;
+				return 100000 + i;
 		}
 
 		return 0;

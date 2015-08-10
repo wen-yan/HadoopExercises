@@ -1,6 +1,6 @@
 ﻿cls
 
-#### Word Count ###
+#### k-means clustering ###
 # create folders...
 hadoop fs -rm -r -skipTrash /KMeans
 
