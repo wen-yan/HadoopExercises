@@ -54,10 +54,14 @@ namespace KMeansClustering.Models
 			// Create a hadoop client to connect to HDInsight
 			IJobSubmissionClient jobClient = JobSubmissionClientFactory.Connect(creds);
 
-			//JobCreationResults mrJobResults = this.StartJob(jobClient);
+			// Delete outputs...
+			this.DeleteOutputs();
+
+			// Start job...
+			JobCreationResults mrJobResults = this.StartJob(jobClient, pointGroup, clusterCount);
 
 			// Wait for the job to complete
-			//WaitForJobCompletion(mrJobResults, jobClient);
+			WaitForJobCompletion(mrJobResults, jobClient);
 
 			// Get result...
 			Stage[] stages = this.GetResult();
@@ -67,26 +71,40 @@ namespace KMeansClustering.Models
 
 		#endregion
 
-		private JobCreationResults StartJob(IJobSubmissionClient jobClient)
+		private void DeleteOutputs()
+		{
+			CloudStorageAccount storageAccount =
+				CloudStorageAccount.Parse(CloudConfigurationManager.GetSetting("StorageConnectionString"));
+			CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+			CloudBlobContainer blobContainer = blobClient.GetContainerReference(ContainerName);
+
+
+			List<string> outputBlobNames = blobContainer.ListBlobs("KMeans/Output", true)
+				.OfType<ICloudBlob>().Select(x => x.Name).ToList();
+			//outputBlobNames.Add("KMeans/Output");
+
+			foreach(string outputBlobName in outputBlobNames)
+			{
+				CloudBlockBlob outputBlob = blobContainer.GetBlockBlobReference(outputBlobName);
+				if(outputBlob != null)
+					outputBlob.DeleteIfExists();
+			}
+		}
+
+		private JobCreationResults StartJob(IJobSubmissionClient jobClient, string pointGroup, int clusterCount)
 		{
 			// Define the MapReduce job
 			MapReduceJobCreateParameters mrJobDefinition = new MapReduceJobCreateParameters()
 			{
 				JarFile = "wasb://hdpcls@storageemulator/KMeans/App/KMeansClustering.jar",
-				ClassName = "kmeansclustering.KMeansClusteringJob"
+				ClassName = "kmeansclustering.KMeansClusteringJob",
 			};
+			mrJobDefinition.Defines.Add("kmeans.cluster.count", clusterCount.ToString());
 
-			mrJobDefinition.Arguments.Add("wasb://hdpcls@storageemulator/KMeans/Input/usca312_xy.txt");
+			mrJobDefinition.Arguments.Add("wasb://hdpcls@storageemulator/KMeans/Input/" + pointGroup);
 			mrJobDefinition.Arguments.Add("wasb://hdpcls@storageemulator/KMeans/Output");
 
-			// Get the certificate object from certificate store using the friendly name to identify it
-			//X509Store store = new X509Store();
-			//store.Open(OpenFlags.ReadOnly);
-			//X509Certificate2 cert = store.Certificates.Cast<X509Certificate2>().First();//(item => item.FriendlyName == certFriendlyName);
-			//JobSubmissionCertificateCredential creds = new JobSubmissionCertificateCredential(new Guid(subscriptionID), cert, clusterName);
-
 			// Run the MapReduce job
-
 			JobCreationResults mrJobResults = jobClient.CreateMapReduceJob(mrJobDefinition);
 			return mrJobResults;
 		}
@@ -110,7 +128,7 @@ namespace KMeansClustering.Models
 
 
 			List<Stage> stages = new List<Stage>();
-			List<string>stageBlobNames = blobContainer.ListBlobs("KMeans/Output/")
+			List<string> stageBlobNames = blobContainer.ListBlobs("KMeans/Output/")
 				.OfType<ICloudBlob>().Select(x => x.Name).ToList();
 
 			foreach(string stageBlobName in stageBlobNames)

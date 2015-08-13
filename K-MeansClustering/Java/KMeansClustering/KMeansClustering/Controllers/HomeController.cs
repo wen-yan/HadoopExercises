@@ -12,7 +12,7 @@ namespace KMeansClustering.Controllers
 			return View();
 		}
 
-		public async Task<ActionResult> PointGroups()
+		public async Task<ActionResult> GetPointGroups()
 		{
 			ICalculator calculator = this.CreateCalculator();
 			string[] groups = await calculator.GetPointGroupsAsync();

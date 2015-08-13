@@ -3,137 +3,165 @@
 }
 
 <div>
+	<select id="datasets"></select>
+	<select id="clusterCount"></select>
 	<button id="startCalcBtn">Start</button>
 </div>
+<div id="inprogress">Calculate in progress...</div>
 <div id="canvas"></div>
 
 @section Scripts {
 	<script type="text/javascript" src="~/Scripts/d3/d3.min.js"></script>
 	<script type="text/javascript">
-		$(function ()
+	$(function ()
+	{
+		var colors = ['#222222', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff'];
+
+		$('#inprogress').hide();
+
+		for(var i = 2; i < colors.length; i++)
 		{
-			var colors = ['#222222', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff'];
-			$("#startCalcBtn").click(function ()
-			{
-				$.getJSON("@Url.Content("~/Home/Calc")", { pointData: 'xx', clusterCount: 2 },
-					function (data, status)
-					{
-						if(status == "error")
-						{
-							console.log("error");
-							return;
-						}
+			$("#clusterCount").append($("<option></option>").val(i).text(i));
+		}
 
-						drawCharts(data);
-					});
+		// Get all datasets...
+		$.getJSON("@Url.Content("~/Home/GetPointGroups")", function (data)
+		{
+			$.each(data, function (index, value)
+			{
+				$("#datasets").append($('<option></option>').val(value).text(value));
 			});
-
-			function drawCharts(stages)
-			{
-				// Calculate svg size...
-				var margin = 20;
-
-				var svgWidth = 1000;
-				var minX = d3.min(stages[0].Points, function (point) { return point.X });
-				var maxX = d3.max(stages[0].Points, function (point) { return point.X });
-				var minY = d3.min(stages[0].Points, function (point) { return point.Y });
-				var maxY = d3.max(stages[0].Points, function (point) { return point.Y });
-				var svgHeight = svgWidth / (maxX - minX) * (maxY - minY);
-				console.log('svg height : ' + svgHeight);
-
-				// Calculate x, y scales...
-				var xScale = d3.scale.linear()
-					.domain([minX, maxX])
-					.range([margin, svgWidth - margin]);
-				var yScale = d3.scale.linear()
-					.domain([minY, maxY])
-					.range([svgHeight - margin, margin]);
-
-				for(var i = 0 ; i < stages.length; i++)
-				{
-					var stage = stages[i];
-
-					// Create svg for each stage...
-					var svg = d3.select('#canvas').append('svg')
-						.attr('width', svgWidth)
-						.attr('height', svgHeight);
-
-					drawChart(stage, svg, xScale, yScale);
-				}
-			}
-
-			function drawChart(stage, svg, xScale, yScale)
-			{
-				// Draw points...
-				var pointSize = 5;
-				svg.selectAll("circle")
-					.data(stage.Points)
-					.enter()
-					.append("circle")
-					.attr("cx", function (p) { return xScale(p.X); })
-					.attr("cy", function (p) { return yScale(p.Y); })
-					.attr("r", pointSize)
-					.style("fill", function (p) { return colors[p.ClusterIndex + 1]; })
-					.style('opacity', 0.5);
-
-				// Draw centers...
-				var centerMarkOutterWidth = 10;
-				var CenterMarkOutterLength = 20;
-
-				var centerMarkWidth = centerMarkOutterWidth - 5;
-				var CenterMarkLength = CenterMarkOutterLength - 5;
-
-				//<path d=" M 10 25
-				//          L 10 75
-				//          L 60 75
-				//          L 10 25"
-				//          stroke="red" stroke-width="2" fill="none" />
-
-				svg.selectAll("#centerOutter")
-					.data(stage.Centers)
-					.enter()
-					.append("path")
-					.attr("d", function (p)
-					{
-						var x = xScale(p.X);
-						var y = yScale(p.Y);
-						var x1 = x - CenterMarkOutterLength / 2;
-						var x2 = x + CenterMarkOutterLength / 2;
-						var y1 = y - CenterMarkOutterLength / 2;
-						var y2 = y + CenterMarkOutterLength / 2;
-
-						return 'M ' + x1 + ' ' + y + ' ' +
-								'L ' + x2 + ' ' + y + ' ' +
-								'M ' + x + ' ' + y1 + ' ' +
-								'L ' + x + ' ' + y2 + ' ';
-					})
-					.attr("stroke", 'black')
-					.attr("stroke-width", centerMarkOutterWidth)
-					.attr("fill", 'none');
-					
-				svg.selectAll("#center")
-					.data(stage.Centers)
-					.enter()
-					.append("path")
-					.attr("d", function (p)
-					{
-						var x = xScale(p.X);
-						var y = yScale(p.Y);
-						var x1 = x - CenterMarkLength / 2;
-						var x2 = x + CenterMarkLength / 2;
-						var y1 = y - CenterMarkLength / 2;
-						var y2 = y + CenterMarkLength / 2;
-
-						return 'M ' + x1 + ' ' + y + ' ' +
-								'L ' + x2 + ' ' + y + ' ' +
-								'M ' + x + ' ' + y1 + ' ' +
-								'L ' + x + ' ' + y2 + ' ';
-					})
-					.attr("stroke", function (p) { return colors[p.ClusterIndex + 1]; })
-					.attr("stroke-width", centerMarkWidth)
-					.attr("fill", 'none');
-			}
 		});
+
+		// Start button click handler...
+		$("#startCalcBtn").click(function ()
+		{
+			var dataset = $('#datasets').val();
+			var clusterCount = $('#clusterCount').val();
+
+			$('#inprogress').show();
+			$.getJSON("@Url.Content("~/Home/Calc")", { pointData: dataset, clusterCount: clusterCount },
+				function (data, status)
+				{
+					$('#inprogress').hide();
+					if(status == "error")
+					{
+						console.log("error");
+						return;
+					}
+
+					drawCharts(data);
+				});
+		});
+
+		function drawCharts(stages)
+		{
+			$('#canvas').empty();
+
+			var margin = 20;
+			var svgWidth = 350;
+
+			// Calculate svg size...
+			var minX = d3.min(stages[0].Points, function (point) { return point.X });
+			var maxX = d3.max(stages[0].Points, function (point) { return point.X });
+			var minY = d3.min(stages[0].Points, function (point) { return point.Y });
+			var maxY = d3.max(stages[0].Points, function (point) { return point.Y });
+			var svgHeight = (svgWidth - margin * 2) / (maxX - minX) * (maxY - minY) + 2 * margin;
+			console.log('svg height : ' + svgHeight);
+
+			// Calculate x, y scales...
+			var xScale = d3.scale.linear()
+				.domain([minX, maxX])
+				.range([margin, svgWidth - margin]);
+			var yScale = d3.scale.linear()
+				.domain([minY, maxY])
+				.range([svgHeight - margin, margin]);
+
+			for(var i = 0 ; i < stages.length; i++)
+			{
+				var stage = stages[i];
+
+				// Create svg for each stage...
+				var svg = d3.select('#canvas').append('svg')
+					.attr('width', svgWidth)
+					.attr('height', svgHeight);
+
+				drawChart(stage, svg, xScale, yScale);
+			}
+		}
+
+		function drawChart(stage, svg, xScale, yScale)
+		{
+			// Draw points...
+			var pointSize = 5;
+			svg.selectAll("circle")
+				.data(stage.Points)
+				.enter()
+				.append("circle")
+				.attr("cx", function (p) { return xScale(p.X); })
+				.attr("cy", function (p) { return yScale(p.Y); })
+				.attr("r", pointSize)
+				.style("fill", function (p) { return colors[p.ClusterIndex + 1]; })
+				.style('opacity', 0.5);
+
+			// Draw centers...
+			var centerMarkOutterWidth = 8;
+			var CenterMarkOutterLength = 16;
+
+			var centerMarkWidth = centerMarkOutterWidth - 4;
+			var CenterMarkLength = CenterMarkOutterLength - 4;
+
+			//<path d=" M 10 25
+			//          L 10 75
+			//          L 60 75
+			//          L 10 25"
+			//          stroke="red" stroke-width="2" fill="none" />
+
+			svg.selectAll("#centerOutter")
+				.data(stage.Centers)
+				.enter()
+				.append("path")
+				.attr("d", function (p)
+				{
+					var x = xScale(p.X);
+					var y = yScale(p.Y);
+					var x1 = x - CenterMarkOutterLength / 2;
+					var x2 = x + CenterMarkOutterLength / 2;
+					var y1 = y - CenterMarkOutterLength / 2;
+					var y2 = y + CenterMarkOutterLength / 2;
+
+					return 'M ' + x1 + ' ' + y + ' ' +
+							'L ' + x2 + ' ' + y + ' ' +
+							'M ' + x + ' ' + y1 + ' ' +
+							'L ' + x + ' ' + y2 + ' ';
+				})
+				.attr("stroke", 'black')
+				.attr("stroke-width", centerMarkOutterWidth)
+				.attr("fill", 'none');
+
+			svg.selectAll("#center")
+				.data(stage.Centers)
+				.enter()
+				.append("path")
+				.attr("d", function (p)
+				{
+					var x = xScale(p.X);
+					var y = yScale(p.Y);
+					var x1 = x - CenterMarkLength / 2;
+					var x2 = x + CenterMarkLength / 2;
+					var y1 = y - CenterMarkLength / 2;
+					var y2 = y + CenterMarkLength / 2;
+
+					return 'M ' + x1 + ' ' + y + ' ' +
+							'L ' + x2 + ' ' + y + ' ' +
+							'M ' + x + ' ' + y1 + ' ' +
+							'L ' + x + ' ' + y2 + ' ';
+				})
+				.attr("stroke", function (p) { return colors[p.ClusterIndex + 1]; })
+				.attr("stroke-width", centerMarkWidth)
+				.attr("fill", 'none');
+		}
+	});
 
 	</script>
 }

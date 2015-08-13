@@ -22,6 +22,11 @@ import java.net.URI;
 
 public class CalcJob extends WorkJob
 {
+	public enum Counters
+	{
+		PointChanged
+	}
+
 	public CalcJob(Configuration conf, String name, String inputPaths, String outputPath)
 		throws IOException
 	{
@@ -72,29 +77,19 @@ public class CalcJob extends WorkJob
 			URI[] cacheFiles = context.getCacheFiles();
 			for(URI uri : cacheFiles)
 			{
-				try
-				{
-					BufferedReader fis = new BufferedReader(
-						new FileReader(new File(uri.getPath()).getName()));
+				BufferedReader fis = new BufferedReader(
+					new FileReader(new File(uri.getPath()).getName()));
 
-					String line;
-					while((line = fis.readLine()) != null)
-					{
-						// 0	-29.0585 -43.2167
-						// 1	-64.7473 21.8982
-						// 2	-36.0366 -21.6135
-						PointWritable point = new PointWritable();
-						int cluster = parseOutput(config, line, point);
-
-						_centers[cluster] = point;
-					}
-				}
-				catch(IOException ioe)
+				String line;
+				while((line = fis.readLine()) != null)
 				{
-					//					System.err.println(
-					//						"Caught exception while parsing the cached file '" +
-					// patternsURI + "' : " +
-					//							StringUtils.stringifyException(ioe));
+					// 0	-29.0585 -43.2167
+					// 1	-64.7473 21.8982
+					// 2	-36.0366 -21.6135
+					PointWritable point = new PointWritable();
+					int cluster = parseOutput(config, line, point);
+
+					_centers[cluster] = point;
 				}
 			}
 		}
@@ -131,7 +126,7 @@ public class CalcJob extends WorkJob
 
 			if(newCluster != cluster)
 			{
-				// TODO : mark something changed...
+				context.getCounter(Counters.PointChanged).increment(1);
 			}
 
 			context.write(new IntWritable(newCluster), point);

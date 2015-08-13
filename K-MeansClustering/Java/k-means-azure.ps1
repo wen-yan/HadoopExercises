@@ -1,5 +1,8 @@
 ﻿cls
 
+$Root = 'C:\Work\GitHub\wensagi\HadoopExercises\K-MeansClustering\Java'
+$Root = $PSScriptRoot
+
 #### k-means clustering ###
 $ContainerName = "hdpcls"
 $JarFileName = "KMeansClustering.jar"
@@ -13,7 +16,7 @@ New-AzureStorageContainer -Context $StorageContext -Name $ContainerName -Permiss
 # create folders...
 #Remove-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob ""
 
-$DataSetsFolder = 'C:\Work\GitHub\wensagi\HadoopExercises\K-MeansClustering\DataSets'
+$DataSetsFolder = "$Root\..\DataSets"
 foreach($LocalFile in Get-ChildItem -Path "$DataSetsFolder\*.txt")
 {
     $FileName = $LocalFile.Name
@@ -23,12 +26,13 @@ foreach($LocalFile in Get-ChildItem -Path "$DataSetsFolder\*.txt")
 }
 
 # Copy jar to storage...
-$JarPathLocal = "$PSScriptRoot\HadoopJob\out\artifacts\KMeansClustering\$JarFileName"
+$JarPathLocal = "$Root\HadoopJob\out\artifacts\KMeansClustering\$JarFileName"
 $JarBlob = "KMeans/App/$JarFileName"
 Set-AzureStorageBlobContent -Context $StorageContext -Container $ContainerName -File $JarPathLocal -Blob $JarBlob -Force
 
 # Delete outputs..
 Get-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "KMeans/Output/*" |Remove-AzureStorageBlob
+Remove-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "KMeans/Output"
 
 Get-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "KMeans/*"
 
@@ -48,29 +52,5 @@ Wait-AzureHDInsightJob -Credential $Creds -Job $Job -WaitTimeoutInSeconds 3600
 Get-AzureHDInsightJobOutput -Cluster $ClusterName -JobId $Job.JobId -StandardError -Verbose
 
 # Show result...
-Get-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "KMeans/Output/*"
+#Get-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "KMeans/Output/*"
 
-
-# hadoop fs -rm -r -skipTrash /KMeans
-# 
-# hadoop fs -mkdir /KMeans
-# hadoop fs -mkdir /KMeans/App
-# hadoop fs -mkdir /KMeans/Input
-# #hadoop fs -mkdir /KMeans/MRStatusOutput
-# # DO NOT create output folder, otherwise no result output !!!
-# #hadoop fs -mkdir /KMeans/Output
-# 
-# # copy input files
-# hadoop fs -copyFromLocal "$PSScriptRoot\..\DataSets\*.txt" /KMeans/Input
-# 
-# # run hadoop
-# $JarPathLocal = "$PSScriptRoot\HadoopJob\out\artifacts\KMeansClustering\KMeansClustering.jar"
-# #hadoop jar $JarPathLocal "-Dkmeans.cluster.count=3" /KMeans/Input/lau15_xy.txt /KMeans/Output
-# 
-# hadoop jar $JarPathLocal "-Dkmeans.cluster.count=3" wasb://hdpcls@storageemulator/KMeans/Input/lau15_xy.txt wasb://hdpcls@storageemulator/KMeans/Output
-# 
-# # get result
-# hadoop fs -ls /KMeans/Output-*
-# #hadoop fs -cat /KMeans/Input/lau15_xy.txt
-# #hadoop fs -cat /KMeans/Output-*/ClusterCenter-*
-# #hadoop fs -cat /KMeans/Output-*/ClusterPoint-*

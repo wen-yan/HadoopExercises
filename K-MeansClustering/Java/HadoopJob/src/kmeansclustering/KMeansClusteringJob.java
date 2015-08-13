@@ -37,9 +37,9 @@ public class KMeansClusteringJob extends Configured implements Tool
 		InitializeJob job = new InitializeJob(getConf(), "initialize", inputPaths, outputPath);
 
 		if(!job.getJob().waitForCompletion(true))
-			return 2;
+			return 1;
 
-		for(int i = 0; i < 4; i++)
+		for(int i = 0; ; i++)
 		{
 			String pointFiles = outputPathBase + "/" + Integer
 				.toString(i) + "/" + WorkJob.Output_Name_ClusterPoint + "-*";
@@ -72,6 +72,14 @@ public class KMeansClusteringJob extends Configured implements Tool
 
 			if(!calcJob.getJob().waitForCompletion(true))
 				return 100000 + i;
+
+			long counter = calcJob.getJob().getCounters().findCounter(CalcJob.Counters
+				.PointChanged)
+				.getValue();
+
+			// If nothing changed, return...
+			if(counter == 0)
+				break;
 		}
 
 		return 0;
