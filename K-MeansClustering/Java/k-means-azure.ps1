@@ -35,7 +35,7 @@ Get-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "K
 # Run hadoop...
 $JobDefinition = New-AzureHDInsightMapReduceJobDefinition `
     -JarFile "wasb://hdpcls@storageemulator/$JarBlob" `
-    -ClassName "KMeansClusteringJob" `
+    -ClassName "kmeansclustering.KMeansClusteringJob" `
     -Defines @{ "kmeans.cluster.count"="3" } `
     -Arguments "wasb://hdpcls@storageemulator/KMeans/Input/lau15_xy.txt", "wasb://hdpcls@storageemulator/KMeans/Output"
 
@@ -46,6 +46,10 @@ Wait-AzureHDInsightJob -Credential $Creds -Job $Job -WaitTimeoutInSeconds 3600
 
 #Select-AzureSubscription -Current
 Get-AzureHDInsightJobOutput -Cluster $ClusterName -JobId $Job.JobId -StandardError -Verbose
+
+# Show result...
+Get-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob "KMeans/Output/*"
+
 
 # hadoop fs -rm -r -skipTrash /KMeans
 # 

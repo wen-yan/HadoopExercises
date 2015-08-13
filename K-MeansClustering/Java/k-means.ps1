@@ -16,7 +16,7 @@ hadoop fs -copyFromLocal "$PSScriptRoot\..\DataSets\*.txt" /KMeans/Input
 
 # run hadoop
 $JarPathLocal = "$PSScriptRoot\HadoopJob\out\artifacts\KMeansClustering\KMeansClustering.jar"
-hadoop jar $JarPathLocal "-Dkmeans.cluster.count=3" /KMeans/Input/lau15_xy.txt /KMeans/Output
+hadoop jar $JarPathLocal kmeansclustering.KMeansClusteringJob "-Dkmeans.cluster.count=3" /KMeans/Input/lau15_xy.txt /KMeans/Output
 
 # get result
 hadoop fs -ls /KMeans/Output-*

@@ -4,3 +4,8 @@
 
 /WordCount/src/out
 /K-MeansClustering/Java/HadoopJob/out
+/K-MeansClustering/Java/KMeansClustering/KMeansClustering/bin
+/K-MeansClustering/Java/KMeansClustering/KMeansClustering/obj/Debug
+/K-MeansClustering/Java/KMeansClustering/packages
+*.suo
+*.user
