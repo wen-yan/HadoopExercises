@@ -1,4 +1,6 @@
 ﻿
+//#define EMULATOR
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,20 +16,30 @@ namespace KMeansClustering.Models
 {
 	public class HDInsightCalculator : ICalculator
 	{
+#if EMULATOR
+		private const string StorageConnectionString = "UseDevelopmentStorage=true;";
 		private const string ContainerName = "hdpcls";
+		private const string ContainerHost = "hdpcls@storageemulator";
 
+		private const string HDInsight_UserName = "hadoop";
+		private const string HDInsight_Password = "";
+		private const string HDInsight_Server = "http://localhost:50111";
+#else
+		private const string StorageConnectionString =
+			"DefaultEndpointsProtocol=https;AccountName=sagistg1;AccountKey=e+yrk3Z5x22f5XzIki+8lkRnaU87nTddZLefh3Uk0p35cq1+Ykuzi/ljtaBrAvfCN/1Xr6wid0bzaE9BQtDdIA==;";
+		private const string ContainerName = "sagicls1";
+		private const string ContainerHost = "";
+
+		private const string HDInsight_UserName = "admin";
+		private const string HDInsight_Password = "Qwer#001014";
+		private const string HDInsight_Server = "https://sagicls1.azurehdinsight.net";
+#endif
 		#region ICalculator Members
 
 		public async Task<string[]> GetPointGroupsAsync()
 		{
-			CloudStorageAccount storageAccount =
-					CloudStorageAccount.Parse(CloudConfigurationManager.GetSetting("StorageConnectionString"));
-
-			// Create a blob client for interacting with the blob service.
-			CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-
 			// Get container...
-			CloudBlobContainer container = blobClient.GetContainerReference(ContainerName);
+			CloudBlobContainer container = this.GetBlobContainer();
 
 			// List all the blobs in the container 
 			List<string> names = new List<string>();
@@ -47,9 +59,10 @@ namespace KMeansClustering.Models
 		public async Task<Stage[]> CalculateAsync(string pointGroup, int clusterCount)
 		{
 			BasicAuthCredential creds = new BasicAuthCredential();
-			creds.UserName = "hadoop";
-			creds.Password = "";
-			creds.Server = new Uri("http://localhost:50111");
+
+			creds.UserName = HDInsight_UserName;
+			creds.Password = HDInsight_Password;
+			creds.Server = new Uri(HDInsight_Server);
 
 			// Create a hadoop client to connect to HDInsight
 			IJobSubmissionClient jobClient = JobSubmissionClientFactory.Connect(creds);
@@ -71,13 +84,27 @@ namespace KMeansClustering.Models
 
 		#endregion
 
-		private void DeleteOutputs()
+		private CloudStorageAccount CreateStorageAccount()
 		{
 			CloudStorageAccount storageAccount =
-				CloudStorageAccount.Parse(CloudConfigurationManager.GetSetting("StorageConnectionString"));
+				//CloudStorageAccount.Parse(CloudConfigurationManager.GetSetting("StorageConnectionString"));
+				CloudStorageAccount.Parse(StorageConnectionString);
+
+			return storageAccount;
+		}
+
+		private CloudBlobContainer GetBlobContainer()
+		{
+			CloudStorageAccount storageAccount = this.CreateStorageAccount();
 			CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
 			CloudBlobContainer blobContainer = blobClient.GetContainerReference(ContainerName);
 
+			return blobContainer;
+		}
+
+		private void DeleteOutputs()
+		{
+			CloudBlobContainer blobContainer = this.GetBlobContainer();
 
 			List<string> outputBlobNames = blobContainer.ListBlobs("KMeans/Output", true)
 				.OfType<ICloudBlob>().Select(x => x.Name).ToList();
@@ -96,13 +123,13 @@ namespace KMeansClustering.Models
 			// Define the MapReduce job
 			MapReduceJobCreateParameters mrJobDefinition = new MapReduceJobCreateParameters()
 			{
-				JarFile = "wasb://hdpcls@storageemulator/KMeans/App/KMeansClustering.jar",
+				JarFile = "wasb://" + ContainerHost + "/KMeans/App/KMeansClustering.jar",
 				ClassName = "kmeansclustering.KMeansClusteringJob",
 			};
 			mrJobDefinition.Defines.Add("kmeans.cluster.count", clusterCount.ToString());
 
-			mrJobDefinition.Arguments.Add("wasb://hdpcls@storageemulator/KMeans/Input/" + pointGroup);
-			mrJobDefinition.Arguments.Add("wasb://hdpcls@storageemulator/KMeans/Output");
+			mrJobDefinition.Arguments.Add("wasb://" + ContainerHost + "/KMeans/Input/" + pointGroup);
+			mrJobDefinition.Arguments.Add("wasb://" + ContainerHost + "/KMeans/Output");
 
 			// Run the MapReduce job
 			JobCreationResults mrJobResults = jobClient.CreateMapReduceJob(mrJobDefinition);
@@ -121,15 +148,21 @@ namespace KMeansClustering.Models
 
 		private Stage[] GetResult()
 		{
-			CloudStorageAccount storageAccount =
-				CloudStorageAccount.Parse(CloudConfigurationManager.GetSetting("StorageConnectionString"));
-			CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-			CloudBlobContainer blobContainer = blobClient.GetContainerReference(ContainerName);
-
+			CloudBlobContainer blobContainer = this.GetBlobContainer();
 
 			List<Stage> stages = new List<Stage>();
 			List<string> stageBlobNames = blobContainer.ListBlobs("KMeans/Output/")
 				.OfType<ICloudBlob>().Select(x => x.Name).ToList();
+
+			stageBlobNames.Sort((x, y) =>
+				{
+					x = x.Substring(x.LastIndexOf('/') + 1);
+					y = y.Substring(y.LastIndexOf('/') + 1);
+					int xx = int.Parse(x);
+					int yy = int.Parse(y);
+
+					return xx - yy;
+				});
 
 			foreach(string stageBlobName in stageBlobNames)
 			{
