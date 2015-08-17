@@ -15,8 +15,6 @@ New-AzureStorageContainer -Context $StorageContext -Name $ContainerName -Permiss
 
 
 # create folders...
-#Remove-AzureStorageBlob -Context $StorageContext -Container $ContainerName -Blob ""
-
 $DataSetsFolder = "$Root\..\DataSets"
 foreach($LocalFile in Get-ChildItem -Path "$DataSetsFolder\*.txt")
 {
