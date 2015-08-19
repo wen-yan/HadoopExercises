@@ -1,5 +1,5 @@
 ﻿
-//#define EMULATOR
+#define EMULATOR
 
 using System;
 using System.Collections.Generic;
@@ -26,13 +26,13 @@ namespace KMeansClustering.Models
 		private const string HDInsight_Server = "http://localhost:50111";
 #else
 		private const string StorageConnectionString =
-			"DefaultEndpointsProtocol=https;AccountName=sagistg1;AccountKey=e+yrk3Z5x22f5XzIki+8lkRnaU87nTddZLefh3Uk0p35cq1+Ykuzi/ljtaBrAvfCN/1Xr6wid0bzaE9BQtDdIA==;";
-		private const string ContainerName = "sagicls1";
+			"";
+		private const string ContainerName = "";
 		private const string ContainerHost = "";
 
-		private const string HDInsight_UserName = "admin";
-		private const string HDInsight_Password = "Qwer#001014";
-		private const string HDInsight_Server = "https://sagicls1.azurehdinsight.net";
+		private const string HDInsight_UserName = "";
+		private const string HDInsight_Password = "";
+		private const string HDInsight_Server = "";
 #endif
 		#region ICalculator Members
 
